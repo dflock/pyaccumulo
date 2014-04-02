@@ -110,6 +110,7 @@ setup(
       packages = ['pyaccumulo',
                   'pyaccumulo.iterators',
                   'pyaccumulo.proxy',
+                  'pyaccumulo.tornado',
                   'pyaccumulo.tornado.proxy'
                   ],
       install_requires = ['thrift', 'tornado'],
