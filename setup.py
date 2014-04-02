@@ -109,9 +109,10 @@ setup(
       keywords = 'accumulo client db distributed thrift',
       packages = ['pyaccumulo',
                   'pyaccumulo.iterators',
-                  'pyaccumulo.proxy'
+                  'pyaccumulo.proxy',
+                  'pyaccumulo.tornado.proxy'
                   ],
-      install_requires = ['thrift'],
+      install_requires = ['thrift', 'tornado'],
       py_modules=['ez_setup'],
       cmdclass={"doc": doc, "rpm": rpm},
       classifiers=[
