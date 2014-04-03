@@ -115,7 +115,7 @@ class Scanner(object):
     def next(self, callback):
         self.batch = yield gen.Task(self.client.nextK, self._scanner, self.batchsize)
         entries = []
-        if self.batch.more:
+        if self.batch.results:
             entries = [Cell(e.key.row, e.key.colFamily, e.key.colQualifier, e.key.colVisibility, e.key.timestamp,
                             e.value) for e in self.batch.results]
         callback(entries)
