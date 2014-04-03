@@ -59,7 +59,7 @@ class BatchWriter(object):
 
     @gen.engine
     def close(self, callback):
-        self.client.closeWriter(self._writer)
+        yield gen.Task(self.client.closeWriter, self._writer)
         self._writer = None
         callback()
 
