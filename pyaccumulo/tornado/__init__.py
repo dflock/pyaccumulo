@@ -33,22 +33,25 @@ class BatchWriter(object):
         bw._is_closed = False
         callback(bw)
 
-    @gen.engine
-    def add_mutations(self, muts, callback):
+    def add_mutations(self, muts):
+        """
+        NOTE: Why isn't this a coroutine? self.client.update() doesn't receive a response from the server and the
+              callback is optional - so we can fire and forget.
+        """
         if self._writer is None:
             raise Exception("Cannot write to a closed writer")
         cells = {}
         for mut in muts:
             cells.setdefault(mut.row, []).extend(mut.updates)
-        yield gen.Task(self.client.update, self._writer, cells)
-        callback()
+        self.client.update(self._writer, cells)
 
-    @gen.engine
-    def add_mutation(self, mut, callback):
+    def add_mutation(self, mut):
+        """
+        NOTE: see note above for add_mutations
+        """
         if self._writer is None:
             raise Exception("Cannot write to a closed writer")
-        yield gen.Task(self.client.update, self._writer, {mut.row: mut.updates})
-        callback()
+        self.client.update(self._writer, {mut.row: mut.updates})
 
     @gen.engine
     def flush(self, callback):
@@ -187,7 +190,7 @@ class Accumulo(object):
             muts = [muts]
 
         writer = yield gen.Task(self.create_batch_writer, table)
-        yield gen.Task(writer.add_mutations, muts)
+        writer.add_mutations(muts)
         yield gen.Task(writer.close)
         callback()
 
