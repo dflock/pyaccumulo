@@ -68,14 +68,11 @@ class BatchWriter(object):
 
 
 class Scanner(object):
-    def __init__(self, conn, scanrange=None, cols=None, auths=None, iterators=None, bufsize=None,
-                 batchsize=SCAN_BATCH_SIZE):
+    def __init__(self, conn, batchsize=SCAN_BATCH_SIZE):
         super(Scanner, self).__init__()
         self.client = conn.client
         self.login = conn.login
         self._scanner = None
-        self.options = ScanOptions(auths, self._get_range(scanrange), _get_scan_columns(cols),
-                                   self._get_iterator_settings(iterators), bufsize)
         self.batchsize = batchsize
         self.batch = None
 
@@ -110,8 +107,19 @@ class Scanner(object):
     @staticmethod
     @gen.engine
     def create(conn, table, scanrange, cols, auths, iterators, callback):
-        scanner = Scanner(conn, scanrange, cols, auths, iterators)
-        scanner._scanner = yield gen.Task(scanner.client.createScanner, scanner.login, table, scanner.options)
+        scanner = Scanner(conn)
+        options = ScanOptions(auths, scanner._get_range(scanrange), _get_scan_columns(cols),
+                              scanner._get_iterator_settings(iterators), bufferSize=None)
+        scanner._scanner = yield gen.Task(scanner.client.createScanner, scanner.login, table, options)
+        callback(scanner)
+
+    @staticmethod
+    @gen.engine
+    def create_batch(conn, table, scanranges, cols, auths, iterators, callback):
+        scanner = Scanner(conn)
+        options = BatchScanOptions(auths, scanner._get_ranges(scanranges), _get_scan_columns(cols),
+                                   scanner._get_iterator_settings(iterators), threads=None)
+        scanner._scanner = yield gen.Task(scanner.client.createBatchScanner, scanner.login, table, options)
         callback(scanner)
 
     @gen.engine
@@ -166,7 +174,7 @@ class Accumulo(object):
 
     @gen.engine
     def table_exists(self, table, callback):
-        res = gen.Task(self.client.tableExists, self.login, table)
+        res = yield gen.Task(self.client.tableExists, self.login, table)
         callback(res)
 
     @gen.engine
@@ -195,16 +203,16 @@ class Accumulo(object):
         callback()
 
     @gen.engine
-    def create_scanner(self, table, scanrange, cols, auths, iterators, callback):
+    def create_scanner(self, table, callback, scanrange=None, cols=None, auths=None, iterators=None):
         scanner = yield gen.Task(Scanner.create, self, table, scanrange, cols, auths, iterators)
+        callback(scanner)
+
+    @gen.engine
+    def create_batch_scanner(self, table, callback, scanranges=None, cols=None, auths=None, iterators=None):
+        scanner = yield gen.Task(Scanner.create_batch, self, table, scanranges, cols, auths, iterators)
         callback(scanner)
 
     @gen.engine
     def create_batch_writer(self, table, callback):
         bw = yield gen.Task(BatchWriter.create, self, table, **BW_DEFAULTS)
-        callback(bw)
-
-    @gen.engine
-    def create_batch_writer_with_options(self, table, max_memory, latency_ms, timeout_ms, threads, callback):
-        bw = yield gen.Task(BatchWriter.create, self, table, max_memory, latency_ms, timeout_ms, threads)
         callback(bw)
