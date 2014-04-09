@@ -216,3 +216,8 @@ class Accumulo(object):
     def create_batch_writer(self, table, callback):
         bw = yield gen.Task(BatchWriter.create, self, table, **BW_DEFAULTS)
         callback(bw)
+
+    @gen.engine
+    def attach_iterator(self, table, setting, scopes, callback):
+        yield gen.Task(self.client.attachIterator, self.login, table, setting, scopes)
+        callback()
