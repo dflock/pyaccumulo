@@ -221,3 +221,8 @@ class Accumulo(object):
     def attach_iterator(self, table, setting, scopes, callback):
         yield gen.Task(self.client.attachIterator, self.login, table, setting, scopes)
         callback()
+
+    @gen.engine
+    def remove_iterator(self, table, iterator, scopes, callback):
+        yield gen.Task(self.client.removeIterator, self.login, table, iterator, scopes)
+        callback()

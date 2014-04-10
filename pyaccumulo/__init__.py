@@ -213,3 +213,6 @@ class Accumulo(object):
 
     def attach_iterator(self, table, setting, scopes):
         self.client.attachIterator(self.login, table, setting, scopes)
+
+    def remove_iterator(self, table, iterator, scopes):
+        self.client.removeIterator(self.login, table, iterator, scopes)
