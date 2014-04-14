@@ -3,7 +3,8 @@ from thrift.protocol import TCompactProtocol
 from tornado import gen
 from pyaccumulo import BaseIterator, Cell, _get_scan_columns
 from pyaccumulo.tornado.proxy import AccumuloProxy
-from pyaccumulo.tornado.proxy.ttypes import TimeType, WriterOptions, IteratorSetting, ScanOptions, BatchScanOptions
+from pyaccumulo.tornado.proxy.ttypes import TimeType, WriterOptions, IteratorSetting, ScanOptions, BatchScanOptions, \
+    UnknownWriter
 
 
 BW_DEFAULTS = dict(
@@ -15,6 +16,15 @@ BW_DEFAULTS = dict(
 
 # The number of entries returned with a single scan.next()
 SCAN_BATCH_SIZE = 10
+
+
+def _check_and_raise_exc(res):
+    """
+    The thrift library returns exceptions instead of raising them - so we have to manually check the result and re-raise
+    if we want to catch them...
+    """
+    if isinstance(res, Exception):
+        raise res
 
 
 class BatchWriter(object):
@@ -29,7 +39,9 @@ class BatchWriter(object):
     def create(conn, table, max_memory, latency_ms, timeout_ms, threads, callback):
         bw = BatchWriter(conn)
         bw_options = WriterOptions(maxMemory=max_memory, latencyMs=latency_ms, timeoutMs=timeout_ms, threads=threads)
-        bw._writer = yield gen.Task(bw.client.createWriter, bw.login, table, bw_options)
+        res = yield gen.Task(bw.client.createWriter, bw.login, table, bw_options)
+        _check_and_raise_exc(res)
+        bw._writer = res
         bw._is_closed = False
         callback(bw)
 
@@ -38,8 +50,10 @@ class BatchWriter(object):
         NOTE: Why isn't this a coroutine? self.client.update() doesn't receive a response from the server and the
               callback is optional - so we can fire and forget.
         """
+        if not isinstance(muts, list) and not isinstance(muts, tuple):
+            muts = [muts]
         if self._writer is None:
-            raise Exception("Cannot write to a closed writer")
+            raise UnknownWriter("Cannot write to a closed writer")
         cells = {}
         for mut in muts:
             cells.setdefault(mut.row, []).extend(mut.updates)
@@ -50,20 +64,23 @@ class BatchWriter(object):
         NOTE: see note above for add_mutations
         """
         if self._writer is None:
-            raise Exception("Cannot write to a closed writer")
+            raise UnknownWriter("Cannot write to a closed writer")
         self.client.update(self._writer, {mut.row: mut.updates})
 
     @gen.engine
     def flush(self, callback):
         if self._writer is None:
-            raise Exception("Cannot flush a closed writer")
-        yield gen.Task(self.client.flush, self._writer)
+            raise UnknownWriter("Cannot flush a closed writer")
+        res = yield gen.Task(self.client.flush, self._writer)
+        _check_and_raise_exc(res)
         callback()
 
     @gen.engine
     def close(self, callback):
-        yield gen.Task(self.client.closeWriter, self._writer)
-        self._writer = None
+        if self._writer is not None:
+            res = yield gen.Task(self.client.closeWriter, self._writer)
+            _check_and_raise_exc(res)
+            self._writer = None
         callback()
 
 
@@ -110,7 +127,9 @@ class Scanner(object):
         scanner = Scanner(conn)
         options = ScanOptions(auths, scanner._get_range(scanrange), _get_scan_columns(cols),
                               scanner._get_iterator_settings(iterators), bufferSize=None)
-        scanner._scanner = yield gen.Task(scanner.client.createScanner, scanner.login, table, options)
+        res = yield gen.Task(scanner.client.createScanner, scanner.login, table, options)
+        _check_and_raise_exc(res)
+        scanner._scanner = res
         callback(scanner)
 
     @staticmethod
@@ -119,12 +138,16 @@ class Scanner(object):
         scanner = Scanner(conn)
         options = BatchScanOptions(auths, scanner._get_ranges(scanranges), _get_scan_columns(cols),
                                    scanner._get_iterator_settings(iterators), threads=None)
-        scanner._scanner = yield gen.Task(scanner.client.createBatchScanner, scanner.login, table, options)
+        res = yield gen.Task(scanner.client.createBatchScanner, scanner.login, table, options)
+        _check_and_raise_exc(res)
+        scanner._scanner = res
         callback(scanner)
 
     @gen.engine
     def next(self, callback):
-        self.batch = yield gen.Task(self.client.nextK, self._scanner, self.batchsize)
+        res = yield gen.Task(self.client.nextK, self._scanner, self.batchsize)
+        _check_and_raise_exc(res)
+        self.batch = res
         entries = []
         if self.batch.results:
             entries = [Cell(e.key.row, e.key.colFamily, e.key.colQualifier, e.key.colVisibility, e.key.timestamp,
@@ -138,7 +161,8 @@ class Scanner(object):
 
     @gen.engine
     def close(self, callback):
-        yield gen.Task(self.client.closeScanner, self._scanner)
+        res = yield gen.Task(self.client.closeScanner, self._scanner)
+        _check_and_raise_exc(res)
         callback()
 
 
@@ -160,7 +184,9 @@ class Accumulo(object):
     @gen.engine
     def connect(self, user, password, callback):
         yield gen.Task(self.transport.open)
-        self.login = yield gen.Task(self.client.login, user, {'password': password})
+        res = yield gen.Task(self.client.login, user, {'password': password})
+        _check_and_raise_exc(res)
+        self.login = res
         callback()
 
     def close(self):
@@ -168,35 +194,39 @@ class Accumulo(object):
 
     @gen.engine
     def list_tables(self, callback):
-        tables = yield gen.Task(self.client.listTables, self.login)
-        tables = [t for t in tables]
+        res = yield gen.Task(self.client.listTables, self.login)
+        _check_and_raise_exc(res)
+        tables = [t for t in res]
         callback(tables)
 
     @gen.engine
     def table_exists(self, table, callback):
         res = yield gen.Task(self.client.tableExists, self.login, table)
+        _check_and_raise_exc(res)
         callback(res)
 
     @gen.engine
     def create_table(self, table, callback):
-        yield gen.Task(self.client.createTable, self.login, table, True, TimeType.MILLIS)
+        res = yield gen.Task(self.client.createTable, self.login, table, True, TimeType.MILLIS)
+        _check_and_raise_exc(res)
         callback()
 
     @gen.engine
     def delete_table(self, table, callback):
-        yield gen.Task(self.client.deleteTable, self.login, table)
+        res = yield gen.Task(self.client.deleteTable, self.login, table)
+        _check_and_raise_exc(res)
         callback()
 
     @gen.engine
     def rename_table(self, oldtable, newtable, callback):
-        yield gen.Task(self.client.renameTable, self.login, oldtable, newtable)
+        res = yield gen.Task(self.client.renameTable, self.login, oldtable, newtable)
+        _check_and_raise_exc(res)
         callback()
 
     @gen.engine
     def write(self, table, muts, callback):
         if not isinstance(muts, list) and not isinstance(muts, tuple):
             muts = [muts]
-
         writer = yield gen.Task(self.create_batch_writer, table)
         writer.add_mutations(muts)
         yield gen.Task(writer.close)
@@ -219,10 +249,12 @@ class Accumulo(object):
 
     @gen.engine
     def attach_iterator(self, table, setting, scopes, callback):
-        yield gen.Task(self.client.attachIterator, self.login, table, setting, scopes)
+        res = yield gen.Task(self.client.attachIterator, self.login, table, setting, scopes)
+        _check_and_raise_exc(res)
         callback()
 
     @gen.engine
     def remove_iterator(self, table, iterator, scopes, callback):
-        yield gen.Task(self.client.removeIterator, self.login, table, iterator, scopes)
+        res = yield gen.Task(self.client.removeIterator, self.login, table, iterator, scopes)
+        _check_and_raise_exc(res)
         callback()

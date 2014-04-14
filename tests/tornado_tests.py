@@ -3,6 +3,8 @@ import tornado.gen
 import tornado.testing
 from pyaccumulo import Mutation, Range
 from pyaccumulo.tornado import Accumulo
+from pyaccumulo.tornado.proxy.ttypes import TableExistsException, AccumuloSecurityException, TableNotFoundException, \
+    UnknownScanner, UnknownWriter
 
 
 _ac_conn = None
@@ -31,6 +33,21 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
             globals()["_ac_conn"] = yield tornado.gen.Task(Accumulo.create_and_connect, **ACC_CONN)
         callback(globals()["_ac_conn"])
 
+    def _assert_raises(self, exc_class, func, *args, **kwargs):
+        """
+        The assertRaises function doesn't work correctly for our async test cases...use this instead
+        """
+        try:
+            if "callback" not in kwargs:
+                kwargs["callback"] = self.stop
+            func(*args, **kwargs)
+            self.wait()
+        except Exception as ex:
+            self.assertIsInstance(ex, exc_class)
+        else:
+            self.assertTrue(False, "Expected an exception of type '%s', but received none." %
+                                   exc_class().__class__.__name__)
+
     def setUp(self):
         super(AccumuloTest, self).setUp()
 
@@ -39,6 +56,10 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
         if globals()["_ac_conn"] is not None:
             globals()["_ac_conn"].close()
             globals()["_ac_conn"] = None
+
+    def test_bad_creds(self):
+        self._assert_raises(AccumuloSecurityException, Accumulo.create_and_connect, host=ACC_CONN["host"],
+                            port=ACC_CONN["port"], user="notauser", password="notapassword")
 
     def test_list_tables(self):
         self._get_connection(callback=self.stop)
@@ -53,6 +74,9 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
         conn.table_exists(METADATA_TABLE, callback=self.stop)
         res = self.wait()
         self.assertTrue(res)
+        conn.table_exists(TEMP_TABLE, callback=self.stop)
+        res = self.wait()
+        self.assertFalse(res)
 
     def test_create_table(self):
         """
@@ -66,6 +90,8 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
         conn.table_exists(TEMP_TABLE, callback=self.stop)
         res = self.wait()
         self.assertTrue(res)
+        # make sure an exception is raised if we try to create it again
+        self._assert_raises(TableExistsException, conn.create_table, TEMP_TABLE)
 
     def test_delete_table(self):
         self._get_connection(callback=self.stop)
@@ -75,6 +101,8 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
         conn.table_exists(TEMP_TABLE, callback=self.stop)
         res = self.wait()
         self.assertFalse(res)
+        # make sure an exception is raised if we try to delete a table that no longer exists
+        self._assert_raises(TableNotFoundException, conn.delete_table, TEMP_TABLE)
 
     def test_rename_table(self):
         self._get_connection(callback=self.stop)
@@ -83,8 +111,17 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
         self.wait()
         conn.rename_table(TEMP_TABLE, TEMP_TABLE + "_renamed", callback=self.stop)
         self.wait()
+        # make sure an exception is raised if we try to rename the table to a table that already exists
+        conn.create_table(TEMP_TABLE, callback=self.stop)
+        self.wait()
+        self._assert_raises(TableExistsException, conn.rename_table, TEMP_TABLE, TEMP_TABLE + "_renamed")
+        # delete the tables...
+        conn.delete_table(TEMP_TABLE, callback=self.stop)
+        self.wait()
         conn.delete_table(TEMP_TABLE + "_renamed", callback=self.stop)
         self.wait()
+        # make sure an exception is raised if we try to rename a table that no longer exists
+        self._assert_raises(TableNotFoundException, conn.rename_table, TEMP_TABLE, TEMP_TABLE + "_renamed")
 
     def test_read_and_write(self):
         self._get_connection(callback=self.stop)
@@ -115,9 +152,16 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
         bw.flush(callback=self.stop)
         self.wait()
 
+        mut = Mutation("")
+        # TODO: adding a bad mutation causes an AttributeError - not a MutationsRejectedException!!!
+
         # we are done with the batchwriter, so shut it down
         bw.close(callback=self.stop)
         self.wait()
+
+        # make sure an exception is raised if we try to right to a closed batch writer
+        # mut = Mutation("")
+        self.assertRaises(UnknownWriter, bw.add_mutation, mut)
 
         # read the data back
         conn.create_scanner(TEMP_TABLE, callback=self.stop)
@@ -127,8 +171,16 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
             scanner.next(callback=self.stop)
             entries = self.wait()
             all_entries.extend(entries)
+        # make sure there are no more entries...
+        # NOTE: I expected this to throw a NoMoreEntriesException, but it does not...
+        scanner.next(callback=self.stop)
+        entries = self.wait()
+        self.assertEqual(0, len(entries))
         scanner.close(callback=self.stop)
         self.wait()
+        # make sure it throws an exception if we try to read from a closed scanner or close a closed scanner
+        self._assert_raises(UnknownScanner, scanner.next)
+        self._assert_raises(UnknownScanner, scanner.close)
 
         # 100 mutations with 5 entries per
         self.assertEqual(len(all_entries), 500)
@@ -142,8 +194,16 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
             scanner.next(callback=self.stop)
             entries = self.wait()
             all_entries.extend(entries)
+        # make sure there are no more entries...
+        # NOTE: I expected this to throw a NoMoreEntriesException, but it does not...
+        scanner.next(callback=self.stop)
+        entries = self.wait()
+        self.assertEqual(0, len(entries))
         scanner.close(callback=self.stop)
         self.wait()
+        # make sure it throws an exception if we try to read from a closed scanner or close a closed scanner
+        self._assert_raises(UnknownScanner, scanner.next)
+        self._assert_raises(UnknownScanner, scanner.close)
 
         # 30 mutations with 5 entries per
         self.assertEqual(len(all_entries), 150)
@@ -158,8 +218,16 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
             scanner.next(callback=self.stop)
             entries = self.wait()
             all_entries.extend(entries)
+        # make sure there are no more entries...
+        # NOTE: I expected this to throw a NoMoreEntriesException, but it does not...
+        scanner.next(callback=self.stop)
+        entries = self.wait()
+        self.assertEqual(0, len(entries))
         scanner.close(callback=self.stop)
         self.wait()
+        # make sure it throws an exception if we try to read from a closed scanner or close a closed scanner
+        self._assert_raises(UnknownScanner, scanner.next)
+        self._assert_raises(UnknownScanner, scanner.close)
 
         # make sure we only got a single logical row with 2 entries
         self.assertEqual(len(all_entries), 2)
@@ -183,6 +251,9 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
             all_entries.extend(entries)
         scanner.close(callback=self.stop)
         self.wait()
+        # make sure it throws an exception if we try to read from a closed scanner or close a closed scanner
+        self._assert_raises(UnknownScanner, scanner.next)
+        self._assert_raises(UnknownScanner, scanner.close)
 
         # 3 mutations with 5 entries per
         self.assertEqual(len(all_entries), 15)
@@ -195,6 +266,15 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
 
         conn.delete_table(TEMP_TABLE, callback=self.stop)
         self.wait()
+
+        # make sure an exception is raised if we try to create a writer to a non-existent table
+        self._assert_raises(TableNotFoundException, conn.create_batch_writer, TEMP_TABLE)
+
+        # do the same for a scanner...
+        self._assert_raises(TableNotFoundException, conn.create_scanner, TEMP_TABLE)
+
+        # ...and a batch scanner
+        self._assert_raises(TableNotFoundException, conn.create_batch_scanner, TEMP_TABLE, scanranges=scanranges)
 
     def _assert_entries(self, all_entries, start=0, end=0):
         i = start
