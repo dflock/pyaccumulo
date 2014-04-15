@@ -85,12 +85,11 @@ class BatchWriter(object):
 
 
 class Scanner(object):
-    def __init__(self, conn, batchsize=SCAN_BATCH_SIZE):
+    def __init__(self, conn):
         super(Scanner, self).__init__()
         self.client = conn.client
         self.login = conn.login
         self._scanner = None
-        self.batchsize = batchsize
         self.batch = None
 
     @staticmethod
@@ -144,8 +143,8 @@ class Scanner(object):
         callback(scanner)
 
     @gen.engine
-    def next(self, callback):
-        res = yield gen.Task(self.client.nextK, self._scanner, self.batchsize)
+    def next(self, callback, batchsize=SCAN_BATCH_SIZE):
+        res = yield gen.Task(self.client.nextK, self._scanner, batchsize)
         _check_and_raise_exc(res)
         self.batch = res
         entries = []
