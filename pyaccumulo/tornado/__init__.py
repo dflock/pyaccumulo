@@ -258,3 +258,15 @@ class Accumulo(object):
         res = yield gen.Task(self.client.removeIterator, self.login, table, iterator, scopes)
         _check_and_raise_exc(res)
         callback()
+
+    @gen.engine
+    def following_key(self, key, part, callback):
+        res = yield gen.Task(self.client.getFollowing, key, part)
+        _check_and_raise_exc(res)
+        callback(res)
+
+    @gen.engine
+    def get_max_row(self, table, callback, auths=None, srow=None, sinclude=None, erow=None, einclude=None):
+        res = yield gen.Task(self.client.getMaxRow, self.login, table, auths, srow, sinclude, erow, einclude)
+        _check_and_raise_exc(res)
+        callback(res)

@@ -216,3 +216,9 @@ class Accumulo(object):
 
     def remove_iterator(self, table, iterator, scopes):
         self.client.removeIterator(self.login, table, iterator, scopes)
+
+    def following_key(self, key, part):
+        return self.client.getFollowing(key, part)
+
+    def get_max_row(self, table, auths=None, srow=None, sinclude=None, erow=None, einclude=None):
+        return self.client.getMaxRow(self.login, table, auths, srow, sinclude, erow, einclude)
