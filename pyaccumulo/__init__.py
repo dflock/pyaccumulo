@@ -222,3 +222,14 @@ class Accumulo(object):
 
     def get_max_row(self, table, auths=None, srow=None, sinclude=None, erow=None, einclude=None):
         return self.client.getMaxRow(self.login, table, auths, srow, sinclude, erow, einclude)
+
+    def add_mutations_and_flush(self, table, muts):
+        """
+        Add mutations to a table without the need to create and manage a batch writer.
+        """
+        if not isinstance(muts, list) and not isinstance(muts, tuple):
+            muts = [muts]
+        cells = {}
+        for mut in muts:
+            cells.setdefault(mut.row, []).extend(mut.updates)
+        self.client.updateAndFlush(self.login, table, cells)

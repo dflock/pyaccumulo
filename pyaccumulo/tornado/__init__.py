@@ -269,3 +269,17 @@ class Accumulo(object):
         res = yield gen.Task(self.client.getMaxRow, self.login, table, auths, srow, sinclude, erow, einclude)
         _check_and_raise_exc(res)
         callback(res)
+
+    @gen.engine
+    def add_mutations(self, table, muts, callback):
+        """
+        Add mutations to a table without the need to create and manage a batch writer.
+        """
+        if not isinstance(muts, list) and not isinstance(muts, tuple):
+            muts = [muts]
+        cells = {}
+        for mut in muts:
+            cells.setdefault(mut.row, []).extend(mut.updates)
+        res = yield gen.Task(self.client.updateAndFlush, self.login, table, cells)
+        _check_and_raise_exc(res)
+        callback()

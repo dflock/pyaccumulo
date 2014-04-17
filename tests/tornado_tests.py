@@ -143,7 +143,7 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
 
         # write some more data - this time add all mutations simultaenously
         muts = []
-        for i in xrange(50, 100):
+        for i in xrange(50, 90):
             mut = Mutation("%02d" % i)
             for j in xrange(5):
                 mut.put(cf="family%02d" % j, cq="qualifier%02d" % j, val="%02d" % j)
@@ -154,14 +154,24 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
 
         mut = Mutation("")
         # TODO: adding a bad mutation causes an AttributeError - not a MutationsRejectedException!!!
+        # a bad mutation causes the proxy to send a request back that the library doesn't handle!!!
 
         # we are done with the batchwriter, so shut it down
         bw.close(callback=self.stop)
         self.wait()
 
         # make sure an exception is raised if we try to right to a closed batch writer
-        # mut = Mutation("")
         self.assertRaises(UnknownWriter, bw.add_mutation, mut)
+
+        # write some more data - this time add some mutations without creating a batchwriter
+        muts = []
+        for i in xrange(90, 100):
+            mut = Mutation("%02d" % i)
+            for j in xrange(5):
+                mut.put(cf="family%02d" % j, cq="qualifier%02d" % j, val="%02d" % j)
+            muts.append(mut)
+        conn.add_mutations(TEMP_TABLE, muts, callback=self.stop)
+        self.wait()
 
         # read the data back
         conn.create_scanner(TEMP_TABLE, callback=self.stop)
