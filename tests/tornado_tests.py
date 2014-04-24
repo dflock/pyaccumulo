@@ -1,25 +1,27 @@
-from time import time
 import tornado.gen
 import tornado.testing
 from pyaccumulo import Mutation, Range
 from pyaccumulo.tornado import Accumulo
 from pyaccumulo.tornado.proxy.ttypes import TableExistsException, AccumuloSecurityException, TableNotFoundException, \
-    UnknownScanner, UnknownWriter
+    UnknownScanner, UnknownWriter, SystemPermission, TablePermission
 
 
 _ac_conn = None
 
 
-# update with your accumulo connections
+# update with your accumulo connection information
 ACC_CONN = dict(
     host="localhost",
     port=42424,
-    user="user",
+    user="user",  # NOTE: this should be the top-level user (i.e. admin or root)
     password="pass"
 )
 
 METADATA_TABLE = "!METADATA"  # true for Accumulo 1.5
-TEMP_TABLE = ('unittest_%f_' % time()).replace('.', '_') + "temp"
+TEMP_TABLE = "pyacc_unittest_temp_table"
+TEMP_USER = "pyacc_unittest_temp_user"
+TEMP_USER_PW = "password"
+TEMP_USER_AUTHS = {"foo", "bar", "baz"}
 
 
 class AccumuloTest(tornado.testing.AsyncTestCase):
@@ -301,3 +303,70 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
         # make sure we got what the scan expected
         if end > start:
             self.assertEqual(all_entries[-1].row, "%02d" % end)
+
+    def test_create_user(self):
+        """
+        NOTE: user created by this call gets deleted by the function below - this works since tests are ordered
+              by their name!!! 'test_c' comes before 'test_d' so this is why this works nicely.
+        """
+        self._get_connection(callback=self.stop)
+        conn = self.wait()
+        conn.create_user(TEMP_USER, TEMP_USER_PW, callback=self.stop)
+        self.wait()
+        conn.list_users(callback=self.stop)
+        users = self.wait()
+        self.assertIn(TEMP_USER, users)
+        # make sure an exception is raised if we try to create the user again
+        self._assert_raises(AccumuloSecurityException, conn.create_user, TEMP_USER, TEMP_USER_PW)
+        # test authorizations
+        conn.set_user_authorizations(TEMP_USER, TEMP_USER_AUTHS, callback=self.stop)
+        self.wait()
+        conn.get_user_authorizations(TEMP_USER, callback=self.stop)
+        auths = self.wait()
+        self.assertEqual(len(auths), len(TEMP_USER_AUTHS))
+        for auth in auths:
+            self.assertIn(auth, TEMP_USER_AUTHS)
+        # reset auths...
+        conn.set_user_authorizations(TEMP_USER, {}, callback=self.stop)
+        self.wait()
+        conn.get_user_authorizations(TEMP_USER, callback=self.stop)
+        auths = self.wait()
+        self.assertEqual(len(auths), 0)
+        # test system permissions - use should have none to start, give them one, verify they have it, revoke it
+        # and verify they no longer have it
+        self._assert_system_permission_is(conn, TEMP_USER, SystemPermission.CREATE_TABLE, False)
+        conn.grant_system_permission(TEMP_USER, SystemPermission.CREATE_TABLE, callback=self.stop)
+        self.wait()
+        self._assert_system_permission_is(conn, TEMP_USER, SystemPermission.CREATE_TABLE, True)
+        conn.revoke_system_permission(TEMP_USER, SystemPermission.CREATE_TABLE, callback=self.stop)
+        self.wait()
+        self._assert_system_permission_is(conn, TEMP_USER, SystemPermission.CREATE_TABLE, False)
+        # test table permissions in the same way as system - the temp table should still exist at this point...
+        self._assert_table_permission_is(conn, TEMP_USER, TEMP_TABLE, TablePermission.ALTER_TABLE, False)
+        conn.grant_table_permission(TEMP_USER, TEMP_TABLE, TablePermission.ALTER_TABLE, callback=self.stop)
+        self.wait()
+        self._assert_table_permission_is(conn, TEMP_USER, TEMP_TABLE, TablePermission.ALTER_TABLE, True)
+        conn.revoke_table_permission(TEMP_USER, TEMP_TABLE, TablePermission.ALTER_TABLE, callback=self.stop)
+        self.wait()
+        self._assert_table_permission_is(conn, TEMP_USER, TEMP_TABLE, TablePermission.ALTER_TABLE, False)
+
+    def _assert_system_permission_is(self, conn, user, perm, expected):
+        conn.has_system_permission(user, perm, callback=self.stop)
+        res = self.wait()
+        self.assertEqual(expected, res)
+
+    def _assert_table_permission_is(self, conn, user, table, perm, expected):
+        conn.has_table_permission(user, table, perm, callback=self.stop)
+        res = self.wait()
+        self.assertEqual(expected, res)
+
+    def test_drop_user(self):
+        self._get_connection(callback=self.stop)
+        conn = self.wait()
+        conn.drop_user(TEMP_USER, callback=self.stop)
+        self.wait()
+        conn.list_users(callback=self.stop)
+        users = self.wait()
+        self.assertNotIn(TEMP_USER, users)
+        # make sure an exception is raised if we try to drop the user again
+        self._assert_raises(AccumuloSecurityException, conn.drop_user, TEMP_USER)

@@ -233,3 +233,36 @@ class Accumulo(object):
         for mut in muts:
             cells.setdefault(mut.row, []).extend(mut.updates)
         self.client.updateAndFlush(self.login, table, cells)
+
+    def create_user(self, user, password):
+        self.client.createLocalUser(self.login, user, password)
+
+    def drop_user(self, user):
+        self.client.dropLocalUser(self.login, user)
+
+    def list_users(self):
+        return self.client.listLocalUsers(self.login)
+
+    def set_user_authorizations(self, user, auths):
+        self.client.changeUserAuthorizations(self.login, user, auths)
+
+    def get_user_authorizations(self, user):
+        return self.client.getUserAuthorizations(self.login, user)
+
+    def grant_system_permission(self, user, perm):
+        self.client.grantSystemPermission(self.login, user, perm)
+
+    def revoke_system_permission(self, user, perm):
+        self.client.revokeSystemPermission(self.login, user, perm)
+
+    def has_system_permission(self, user, perm):
+        return self.client.hasSystemPermission(self.login, user, perm)
+
+    def grant_table_permission(self, user, table, perm):
+        self.client.grantTablePermission(self.login, user, table, perm)
+
+    def revoke_table_permission(self, user, table, perm):
+        self.client.revokeTablePermission(self.login, user, table, perm)
+
+    def has_table_permission(self, user, table, perm):
+        return self.client.hasTablePermission(self.login, user, table, perm)

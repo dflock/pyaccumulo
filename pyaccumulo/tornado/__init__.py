@@ -283,3 +283,69 @@ class Accumulo(object):
         res = yield gen.Task(self.client.updateAndFlush, self.login, table, cells)
         _check_and_raise_exc(res)
         callback()
+
+    @gen.engine
+    def create_user(self, user, password, callback):
+        res = yield gen.Task(self.client.createLocalUser, self.login, user, password)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
+    def drop_user(self, user, callback):
+        res = yield gen.Task(self.client.dropLocalUser, self.login, user)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
+    def list_users(self, callback):
+        res = yield gen.Task(self.client.listLocalUsers, self.login)
+        _check_and_raise_exc(res)
+        callback(res)
+
+    @gen.engine
+    def set_user_authorizations(self, user, auths, callback):
+        res = yield gen.Task(self.client.changeUserAuthorizations, self.login, user, auths)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
+    def get_user_authorizations(self, user, callback):
+        res = yield gen.Task(self.client.getUserAuthorizations, self.login, user)
+        _check_and_raise_exc(res)
+        callback(res)
+
+    @gen.engine
+    def grant_system_permission(self, user, perm, callback):
+        res = yield gen.Task(self.client.grantSystemPermission, self.login, user, perm)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
+    def revoke_system_permission(self, user, perm, callback):
+        res = yield gen.Task(self.client.revokeSystemPermission, self.login, user, perm)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
+    def has_system_permission(self, user, perm, callback):
+        res = yield gen.Task(self.client.hasSystemPermission, self.login, user, perm)
+        _check_and_raise_exc(res)
+        callback(res)
+
+    @gen.engine
+    def grant_table_permission(self, user, table, perm, callback):
+        res = yield gen.Task(self.client.grantTablePermission, self.login, user, table, perm)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
+    def revoke_table_permission(self, user, table, perm, callback):
+        res = yield gen.Task(self.client.revokeTablePermission, self.login, user, table, perm)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
+    def has_table_permission(self, user, table, perm, callback):
+        res = yield gen.Task(self.client.hasTablePermission, self.login, user, table, perm)
+        _check_and_raise_exc(res)
+        callback(res)
