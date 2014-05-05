@@ -45,11 +45,8 @@ class BatchWriter(object):
         bw._is_closed = False
         callback(bw)
 
-    def add_mutations(self, muts):
-        """
-        NOTE: Why isn't this a coroutine? self.client.update() doesn't receive a response from the server and the
-              callback is optional - so we can fire and forget.
-        """
+    @gen.engine
+    def add_mutations(self, muts, callback):
         if not isinstance(muts, list) and not isinstance(muts, tuple):
             muts = [muts]
         if self._writer is None:
@@ -57,15 +54,17 @@ class BatchWriter(object):
         cells = {}
         for mut in muts:
             cells.setdefault(mut.row, []).extend(mut.updates)
+        # NOTE: this is fire and forget - we don't wait for a callback
         self.client.update(self._writer, cells)
+        callback()
 
-    def add_mutation(self, mut):
-        """
-        NOTE: see note above for add_mutations
-        """
+    @gen.engine
+    def add_mutation(self, mut, callback):
         if self._writer is None:
             raise UnknownWriter("Cannot write to a closed writer")
+        # NOTE: this is fire and forget - we don't wait for a callback
         self.client.update(self._writer, {mut.row: mut.updates})
+        callback()
 
     @gen.engine
     def flush(self, callback):

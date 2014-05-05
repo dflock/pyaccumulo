@@ -139,7 +139,8 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
             mut = Mutation("%02d" % i)
             for j in xrange(5):
                 mut.put(cf="family%02d" % j, cq="qualifier%02d" % j, val="%02d" % j)
-            bw.add_mutation(mut)
+            bw.add_mutation(mut, callback=self.stop)
+            self.wait()
         bw.flush(callback=self.stop)
         self.wait()
 
@@ -150,7 +151,8 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
             for j in xrange(5):
                 mut.put(cf="family%02d" % j, cq="qualifier%02d" % j, val="%02d" % j)
             muts.append(mut)
-        bw.add_mutations(muts)
+        bw.add_mutations(muts, callback=self.stop)
+        self.wait()
         bw.flush(callback=self.stop)
         self.wait()
 
@@ -162,8 +164,8 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
         bw.close(callback=self.stop)
         self.wait()
 
-        # make sure an exception is raised if we try to right to a closed batch writer
-        self.assertRaises(UnknownWriter, bw.add_mutation, mut)
+        # make sure an exception is raised if we try to write to a closed batch writer
+        self._assert_raises(UnknownWriter, bw.add_mutation, mut)
 
         # write some more data - this time add some mutations without creating a batchwriter
         muts = []
