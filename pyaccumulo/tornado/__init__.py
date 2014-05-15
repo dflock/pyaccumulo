@@ -348,3 +348,9 @@ class Accumulo(object):
         res = yield gen.Task(self.client.hasTablePermission, self.login, user, table, perm)
         _check_and_raise_exc(res)
         callback(res)
+
+    @gen.engine
+    def add_splits(self, table, splits, callback):
+        res = yield gen.Task(self.client.addSplits, self.login, table, splits)
+        _check_and_raise_exc(res)
+        callback(res)

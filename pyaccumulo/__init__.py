@@ -266,3 +266,6 @@ class Accumulo(object):
 
     def has_table_permission(self, user, table, perm):
         return self.client.hasTablePermission(self.login, user, table, perm)
+
+    def add_splits(self, table, splits):
+        self.client.addSplits(self.login, table, splits)
