@@ -11,10 +11,10 @@ _ac_conn = None
 
 # update with your accumulo connection information
 ACC_CONN = dict(
-    host="agile01.lab",
+    host="localhost",
     port=42424,
-    user="rweeks",  # NOTE: this should be the top-level user (i.e. admin or root)
-    password="rweeks"
+    user="user",  # NOTE: this should be the top-level user (i.e. admin or root)
+    password="pass"
 )
 
 METADATA_TABLE = "!METADATA"  # true for Accumulo 1.5
