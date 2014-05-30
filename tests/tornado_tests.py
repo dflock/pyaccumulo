@@ -106,6 +106,33 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
         # make sure an exception is raised if we try to delete a table that no longer exists
         self._assert_raises(TableNotFoundException, conn.delete_table, TEMP_TABLE)
 
+    def test_delete_rows(self):
+        self._get_connection(callback=self.stop)
+        conn = self.wait()
+        conn.create_table(TEMP_TABLE, callback=self.stop)
+        self.wait()
+        conn.create_batch_writer(TEMP_TABLE, callback=self.stop)
+        bw = self.wait()
+        muts = []
+        for i in xrange(50, 90):
+            mut = Mutation("%02d" % i)
+            for j in xrange(5):
+                mut.put(cf="family%02d" % j, cq="qualifier%02d" % j, val="%02d" % j)
+            muts.append(mut)
+        bw.add_mutations(muts, callback=self.stop)
+        self.wait()
+        bw.flush(callback=self.stop)
+        self.wait()
+        conn.delete_rows(TEMP_TABLE, None, None, callback=self.stop)
+        self.wait()
+        conn.create_scanner(TEMP_TABLE, callback=self.stop)
+        scanner = self.wait()
+        # even an empty table will have next()
+        scanner.next(callback=self.stop)
+        entries = self.wait()
+        self.assertListEqual(entries, [])
+        self.assertFalse(scanner.has_next())
+
     def test_rename_table(self):
         self._get_connection(callback=self.stop)
         conn = self.wait()

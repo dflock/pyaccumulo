@@ -216,6 +216,12 @@ class Accumulo(object):
         callback()
 
     @gen.engine
+    def delete_rows(self,  table, start_row, end_row, callback):
+        res = yield gen.Task(self.client.deleteRows, self.login, table, start_row, end_row)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
     def rename_table(self, oldtable, newtable, callback):
         res = yield gen.Task(self.client.renameTable, self.login, oldtable, newtable)
         _check_and_raise_exc(res)
