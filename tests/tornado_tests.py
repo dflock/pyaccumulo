@@ -17,7 +17,7 @@ ACC_CONN = dict(
     password="pass"
 )
 
-METADATA_TABLE = "!METADATA"  # true for Accumulo 1.5
+METADATA_TABLE = "accumulo.metadata"  # true for Accumulo 1.6
 TEMP_TABLE = "pyacc_unittest_temp_table"
 TEMP_USER = "pyacc_unittest_temp_user"
 TEMP_USER_PW = "password"
@@ -110,7 +110,10 @@ class AccumuloTest(tornado.testing.AsyncTestCase):
         self._get_connection(callback=self.stop)
         conn = self.wait()
         conn.create_table(TEMP_TABLE, callback=self.stop)
-        self.wait()
+        try:
+            self.wait()
+        except TableExistsException:
+            pass
         conn.create_batch_writer(TEMP_TABLE, callback=self.stop)
         bw = self.wait()
         muts = []
