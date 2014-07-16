@@ -360,3 +360,25 @@ class Accumulo(object):
         res = yield gen.Task(self.client.addSplits, self.login, table, splits)
         _check_and_raise_exc(res)
         callback(res)
+
+    @gen.engine
+    def add_constraint(self, table, class_name, callback):
+        res = yield gen.Task(self.client.addConstraint, self.login, table, class_name)
+        _check_and_raise_exc(res)
+        callback(res)
+
+    @gen.engine
+    def list_constraints(self, table, callback):
+        res = yield gen.Task(self.client.listConstraints, self.login, table)
+        _check_and_raise_exc(res)
+        callback(res)
+
+    @gen.engine
+    def remove_constraint(self, table, constraint, callback):
+        """
+        :param table: table name
+        :param constraint: the constraint number as returned by list constraints
+        """
+        res = yield gen.Task(self.client.removeConstraint, self.login, table, constraint)
+        _check_and_raise_exc(res)
+        callback()

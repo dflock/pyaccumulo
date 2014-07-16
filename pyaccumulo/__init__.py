@@ -272,3 +272,16 @@ class Accumulo(object):
 
     def add_splits(self, table, splits):
         self.client.addSplits(self.login, table, splits)
+
+    def add_constraint(self, table, class_name):
+        return self.client.addConstraint(self.login, table, class_name)
+
+    def list_constraints(self, table):
+        return self.client.listConstraints(self.login, table)
+
+    def remove_constraint(self, table, constraint):
+        """
+        :param table: table name
+        :param constraint: the constraint number as returned by list constraints
+        """
+        self.client.removeConstraint(self.login, table, constraint)
