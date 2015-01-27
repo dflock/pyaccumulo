@@ -175,6 +175,21 @@ class Accumulo(object):
     def rename_table(self, oldtable, newtable):
         self.client.renameTable(self.login, oldtable, newtable)
 
+    def clone_table(self, oldtable, newtable, flush, propstoset, propstoexclude):
+        self.client.cloneTable(self.login, oldtable, newtable, flush, propstoset, propstoexclude)
+
+    def export_table(self, table, exportdir):
+        self.client.exportTable(self.login, table, exportdir)
+
+    def import_table(self, table, importdir):
+        self.client.importTable(self.login, table, importdir)
+
+    def offline_table(self, table, wait):
+        self.client.offlineTable(self.login, table, wait)
+
+    def online_table(self, table, wait):
+        self.client.onlineTable(self.login, table, wait)
+
     def write(self, table, muts):
         if not isinstance(muts, list) and not isinstance(muts, tuple):
             muts = [muts]
