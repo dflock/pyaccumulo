@@ -216,6 +216,37 @@ class Accumulo(object):
         callback()
 
     @gen.engine
+    def clone_table(self, table, new_table, flush, props_to_set, props_to_exclude, callback):
+        res = yield gen.Task(self.client.cloneTable, self.login, table, new_table, flush,
+                             props_to_set, props_to_exclude)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
+    def export_table(self, table, export_dir, callback):
+        res = yield gen.Task(self.client.exportTable, self.login, table, export_dir)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
+    def import_table(self, table, import_dir, callback):
+        res = yield gen.Task(self.client.importTable, self.login, table, import_dir)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
+    def offline_table(self, table, wait, callback):
+        res = yield gen.Task(self.client.offlineTable, self.login, table, wait)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
+    def online_table(self, table, wait, callback):
+        res = yield gen.Task(self.client.onlineTable, self.login, table, wait)
+        _check_and_raise_exc(res)
+        callback()
+
+    @gen.engine
     def delete_rows(self,  table, start_row, end_row, callback):
         res = yield gen.Task(self.client.deleteRows, self.login, table, start_row, end_row)
         _check_and_raise_exc(res)
