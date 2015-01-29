@@ -184,11 +184,11 @@ class Accumulo(object):
     def import_table(self, table, importdir):
         self.client.importTable(self.login, table, importdir)
 
-    def offline_table(self, table, wait):
-        self.client.offlineTable(self.login, table, wait)
+    def offline_table(self, table):
+        self.client.offlineTable(self.login, table)
 
-    def online_table(self, table, wait):
-        self.client.onlineTable(self.login, table, wait)
+    def online_table(self, table):
+        self.client.onlineTable(self.login, table)
 
     def write(self, table, muts):
         if not isinstance(muts, list) and not isinstance(muts, tuple):

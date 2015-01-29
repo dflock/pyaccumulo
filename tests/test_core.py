@@ -80,6 +80,46 @@ class AccumuloTest(unittest.TestCase):
         conn.rename_table("mytable", "newtable")
         conn.client.renameTable.assert_called_with("Login", "mytable", "newtable")
 
+    def test_clone_table(self):
+        conn = Accumulo(_connect=False)
+        conn.client = Mock()
+        conn.login = "Login"
+        conn.client.cloneTable = Mock()
+        conn.clone_table("mytable", "newtable", True, dict(), dict())
+        conn.client.cloneTable.assert_called_with("Login", "mytable", "newtable", True, dict(), dict())
+
+    def test_export_table(self):
+        conn = Accumulo(_connect=False)
+        conn.client = Mock()
+        conn.login = "Login"
+        conn.client.exportTable = Mock()
+        conn.export_table("mytable", "/some/dir")
+        conn.client.exportTable.assert_called_with("Login", "mytable", "/some/dir")
+
+    def test_import_table(self):
+        conn = Accumulo(_connect=False)
+        conn.client = Mock()
+        conn.login = "Login"
+        conn.client.importTable = Mock()
+        conn.import_table("mytable", "/some/dir")
+        conn.client.importTable.assert_called_with("Login", "mytable", "/some/dir")
+
+    def test_offline_table(self):
+        conn = Accumulo(_connect=False)
+        conn.client = Mock()
+        conn.login = "Login"
+        conn.client.offlineTable = Mock()
+        conn.offline_table("mytable")
+        conn.client.offlineTable.assert_called_with("Login", "mytable")
+
+    def test_online_table(self):
+        conn = Accumulo(_connect=False)
+        conn.client = Mock()
+        conn.login = "Login"
+        conn.client.onlineTable = Mock()
+        conn.online_table("mytable")
+        conn.client.onlineTable.assert_called_with("Login", "mytable")
+
     def test_get_range(self):
         conn = Accumulo(_connect=False)
         r = Mock()
