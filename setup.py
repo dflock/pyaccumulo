@@ -12,15 +12,11 @@ except:
     has_subprocess = False
 
 try:
+    from setuptools import setup, find_packages
+except ImportError:
     from ez_setup import use_setuptools
     use_setuptools()
-except ImportError:
-    pass
-
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
+    from setuptools import setup, find_packages
 
 from distutils.cmd import Command
 
