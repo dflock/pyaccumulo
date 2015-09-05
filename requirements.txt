@@ -1,3 +1,3 @@
-tornado
-thrift
+tornado==3.2
+thrift==0.9.1
 
